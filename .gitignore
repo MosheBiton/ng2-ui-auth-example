@@ -6,3 +6,4 @@ client/src/aot/
 client/node_modules/
 server/dist/
 server/node_modules/
+npm-debug.log*

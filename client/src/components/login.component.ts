@@ -46,4 +46,12 @@ export class LoginComponent implements OnInit {
                 complete: () => this.router.navigateByUrl('main')
             });
     }
+    
+    loginWithFacebook() {
+        this.auth.authenticate('facebook')
+            .subscribe({
+                error: (err: any) => this.eh.handleError(err),
+                complete: () => this.router.navigateByUrl('main')
+            })
+    }
 }

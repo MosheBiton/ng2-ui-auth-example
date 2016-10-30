@@ -1,12 +1,12 @@
 import * as express from 'express';
-import {Request, Response} from 'express';
+import { Request, Response } from 'express';
 import * as rp from 'request-promise';
 import * as jwtMiddleware from 'express-jwt';
-import {JsonWebTokenError} from 'jsonwebtoken';
-import {validateAsync, loginValidationSchema, isValidationError, toTokenUser, RequestWithUser, compareAsync, encryptAsync, sendTokenAsync, verifyTokenAsync} from './helpers';
-import {config} from './config';
-import {IDBUser, ITokenUser, ILoginData, IGoogleProfile} from './interfaces';
-import {dbSaveUser, dbGetUser, dbGetUserByGoogle, dbUpdateUser, dbGoogleIdExists} from './storage';
+import { JsonWebTokenError } from 'jsonwebtoken';
+import { validateAsync, loginValidationSchema, isValidationError, toTokenUser, RequestWithUser, compareAsync, encryptAsync, sendTokenAsync, verifyTokenAsync } from './helpers';
+import { config } from './config';
+import { IDBUser, ITokenUser, ILoginData, IGoogleProfile, IFacebookProfile } from './interfaces';
+import { dbSaveUser, dbUpdateUser, dbGetUser, dbGetUserByGoogle, dbGetUserByFacebook, dbGoogleIdExists, dbFacebookIdExists } from './storage';
 
 /**
  * Created by Ron on 02/10/2016.
@@ -15,13 +15,12 @@ export const authRoutes = express.Router()
     .post('/login', login)
     .post('/signup', signup)
     .get('/refresh', refresh)
-    .post('/google',
-        jwtMiddleware({
-            secret: config.auth.TOKEN_SECRET,
-            credentialsRequired: false
-        }),
-        google
-    );
+    .use(jwtMiddleware({
+        secret: config.auth.TOKEN_SECRET,
+        credentialsRequired: false
+    }))
+    .post('/google', google)
+    .post('/facebook', facebook)
 
 
 export async function signup(request: Request, response: Response) {
@@ -140,4 +139,52 @@ export async function google(req: RequestWithUser, res: Response) {
     // 3c. return an existing user
     const user = await dbGetUserByGoogle(profile.sub);
     return await sendTokenAsync(res, toTokenUser(user));
+}
+
+export async function facebook(req: RequestWithUser, res: Response) {
+    try {
+        const fields = ['id', 'email', 'first_name', 'last_name', 'link', 'name', 'picture'];
+        const accessTokenUrl = 'https://graph.facebook.com/v2.5/oauth/access_token';
+        const graphApiUrl = 'https://graph.facebook.com/v2.5/me?fields=' + fields.join(',');
+        const params = {
+            code: req.body.code,
+            client_id: req.body.clientId,
+            client_secret: config.auth.FACEBOOK_SECRET,
+            redirect_uri: req.body.redirectUri
+        };
+        // Step 1. Exchange authorization code for access token.
+        const access_token = await rp.get(accessTokenUrl, { json: true, qs: params });
+        // Step 2. Retrieve profile information about the current user.
+        const profile: IFacebookProfile = await rp.get({ url: graphApiUrl, json: true, qs: access_token });
+        // Steip 3a. Checkes if the clients account is already linked with this facebook account
+        if (req.user) {
+            if (await dbFacebookIdExists(profile.id)) {
+                return res.status(409).send('Facebook profile already linked');
+            }
+            // If the users isn't linked to this facebook account then we update the current account with the clients facebook profile
+            const user = await dbUpdateUser(req.user.username, {
+                facebook: profile.id,
+                picture: profile.picture.data.url, //profile.picture.replace('sz=50', 'sz=200'),
+                displayName: req.user.displayName || profile.name
+            });
+            return await sendTokenAsync(res, toTokenUser(user));
+        }
+        // Step 3b. Create a new user account
+        const facebookIdExists = await dbFacebookIdExists(profile.id);
+        if (!facebookIdExists) {
+            const user = await dbSaveUser({
+                username: profile.name,
+                facebook: profile.id,
+                picture: profile.picture.data.url,
+                displayName: profile.name
+            });
+            return await sendTokenAsync(res, toTokenUser(user));
+        }
+        // 3c. return an existing user
+        const user = await dbGetUserByFacebook(profile.id);
+        return await sendTokenAsync(res, toTokenUser(user));
+    } catch (err) {
+        console.log(err);
+        return await res.sendStatus(500);
+    }
 }

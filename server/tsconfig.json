@@ -8,5 +8,5 @@
     "noImplicitReturns": true,
     "strictNullChecks": true
   },
-  "files": ["src/server"]
+  "exclude": ["node_modules"]
 }
