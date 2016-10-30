@@ -140,7 +140,7 @@ export async function google(req: RequestWithUser, res: Response) {
     const user = await dbGetUserByGoogle(profile.sub);
     return await sendTokenAsync(res, toTokenUser(user));
 }
-
+//t
 export async function facebook(req: RequestWithUser, res: Response) {
     try {
         const fields = ['id', 'email', 'first_name', 'last_name', 'link', 'name', 'picture'];
