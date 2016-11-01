@@ -4,8 +4,9 @@ import {CustomConfig} from 'ng2-ui-auth';
  */
 export const GOOGLE_CLIENT_ID = '<replace me>';
 export const FACEBOOK_CLIENT_ID = '<replace me>';
+export const TWITTER_KEY = '<replace me>';
 
 export class MyAuthConfig extends CustomConfig {
     defaultHeaders = {'Content-Type': 'application/json'};
-    providers = {google: {clientId: GOOGLE_CLIENT_ID}, facebook:{clientId: FACEBOOK_CLIENT_ID}}
+    providers = {google: {clientId: GOOGLE_CLIENT_ID}, facebook:{clientId: FACEBOOK_CLIENT_ID}, twitter:{clientId: TWITTER_KEY}};
 }

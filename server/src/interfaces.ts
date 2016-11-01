@@ -33,6 +33,13 @@ export interface IFacebookProfile {
     };
 }
 
+export interface ITwitterProfile{
+    id: string;
+    email: string;
+    name: string;
+    profile_image_url: string;
+}
+
 export interface ILoginData {
     username: string;
     password: string;
@@ -50,5 +57,6 @@ export interface ITokenUser {
 export interface IDBUser extends ITokenUser {
     google?: string;
     facebook?: string;
+    twitter?: string;
     hash?: string;
 }

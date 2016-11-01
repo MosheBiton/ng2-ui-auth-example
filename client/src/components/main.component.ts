@@ -68,4 +68,15 @@ export class MainComponent implements OnInit {
                 }
             });
     }
+
+    linkWithTwitter() {
+        this.auth.link('twitter')
+            .subscribe({
+                error: (err: any) => this.eh.handleError(err),
+                complete: () => {
+                    this.expiration = this.auth.getExpirationDate();
+                    this.user = this.auth.getPayload();
+                }
+            });
+    }
 }

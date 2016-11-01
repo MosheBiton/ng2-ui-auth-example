@@ -11,6 +11,7 @@ const users = new Map<string, IDBUser>([['test', {
 
 const googleToUsername = new Map<string, string>();
 const facebookToUsername = new Map<string, string>();
+const twitterToUsername = new Map<string, string>();
 
 export const dbSaveUser = async (user: IDBUser) => {
     if (users.has(user.username)) {
@@ -22,7 +23,10 @@ export const dbSaveUser = async (user: IDBUser) => {
     }
      if(user.facebook){
         facebookToUsername.set(user.facebook,user.username);
-     }
+    }
+    if (user.twitter) {
+        twitterToUsername.set(user.twitter, user.username);
+    }
     return Object.assign({}, user);
 };
 
@@ -48,6 +52,9 @@ export const dbUpdateUser = async (username: string, userUpdate: any /* subset I
     if (user.facebook) {
         facebookToUsername.set(user.facebook, user.username);
     }
+    if (user.twitter) {
+        twitterToUsername.set(user.twitter, user.username);
+    }
     return user;
 };
 
@@ -64,18 +71,29 @@ export const dbGetUserByGoogle = async (google: string) => {
     return Object.assign({}, user);
 };
 
-    export const dbGetUserByFacebook = async (facebook: string) => {
-        const username = facebookToUsername.get(facebook);
-        if (!username) {
-            throw new Error("User doesn't exists");
-        }
-        const user = users.get(username);
-        if (!user) {
-            throw new Error("User doesn't exists");
-        }
-        return Object.assign({}, user);
-    };
+export const dbGetUserByFacebook = async (facebook: string) => {
+    const username = facebookToUsername.get(facebook);
+    if (!username) {
+        throw new Error("User doesn't exists");
+    }
+    const user = users.get(username);
+    if (!user) {
+        throw new Error("User doesn't exists");
+    }
+    return Object.assign({}, user);
+};
 
+export const dbGetUserByTwitter = async (twitter: string) => {
+    const username = twitterToUsername.get(twitter);
+    if (!username) {
+        throw new Error("User doesn't exists");
+    }
+    const user = users.get(username);
+    if (!user) {
+        throw new Error("User doesn't exists");
+    }
+    return Object.assign({}, user);
+};
 
 export const dbGoogleIdExists = async (google: string) => {
     return googleToUsername.has(google);
@@ -83,4 +101,8 @@ export const dbGoogleIdExists = async (google: string) => {
 
 export const dbFacebookIdExists = async (facebook: string) => {
     return facebookToUsername.has(facebook);
+};
+
+export const dbTwitterIdExists = async (twitter: string) => {
+    return twitterToUsername.has(twitter);
 };

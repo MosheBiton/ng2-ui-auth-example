@@ -54,4 +54,12 @@ export class LoginComponent implements OnInit {
                 complete: () => this.router.navigateByUrl('main')
             })
     }
+
+    loginWithTwitter() {
+        this.auth.authenticate('twitter')
+            .subscribe({
+                error: (err: any) => this.eh.handleError(err),
+                complete: () => this.router.navigateByUrl('main')
+            })
+    }
 }

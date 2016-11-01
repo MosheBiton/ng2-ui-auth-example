@@ -26,5 +26,6 @@ export class ErrorHandleService {
         } else {
             this.toastr.error('An unknown error has occurred');
         }
+        console.log(err);
     }
 }

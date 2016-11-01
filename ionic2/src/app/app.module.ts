@@ -19,7 +19,8 @@ export class MyAuthConfig extends CustomConfig {
     defaultHeaders = {'Content-Type': 'application/json'};
     providers = {
       google: { clientId: CONFIG.GOOGLE_CLIENT_ID },
-      facebook: { clientId: CONFIG.FACEBOOK_KEY }
+      facebook: { clientId: CONFIG.FACEBOOK_KEY },
+      twitter: {clientId: CONFIG.TWITTER_KEY}
     };
     tokenName = 'accessToken';
     tokenPrefix = '';

@@ -1,12 +1,13 @@
 import * as express from 'express';
-import { Request, Response } from 'express';
+import {Request, Response} from 'express';
 import * as rp from 'request-promise';
 import * as jwtMiddleware from 'express-jwt';
-import { JsonWebTokenError } from 'jsonwebtoken';
-import { validateAsync, loginValidationSchema, isValidationError, toTokenUser, RequestWithUser, compareAsync, encryptAsync, sendTokenAsync, verifyTokenAsync } from './helpers';
-import { config } from './config';
-import { IDBUser, ITokenUser, ILoginData, IGoogleProfile, IFacebookProfile } from './interfaces';
-import { dbSaveUser, dbUpdateUser, dbGetUser, dbGetUserByGoogle, dbGetUserByFacebook, dbGoogleIdExists, dbFacebookIdExists } from './storage';
+import {JsonWebTokenError} from 'jsonwebtoken';
+import {validateAsync, loginValidationSchema, isValidationError, toTokenUser, RequestWithUser, compareAsync, encryptAsync, sendTokenAsync, verifyTokenAsync} from './helpers';
+import {config} from './config';
+import {IDBUser, ITokenUser, ILoginData, IGoogleProfile, IFacebookProfile, ITwitterProfile} from './interfaces';
+import {dbSaveUser, dbGetUser, dbGetUserByGoogle, dbGetUserByTwitter, dbUpdateUser, dbGoogleIdExists, dbFacebookIdExists, dbGetUserByFacebook, dbTwitterIdExists} from './storage';
+import * as qs from 'querystring';
 
 /**
  * Created by Ron on 02/10/2016.
@@ -21,6 +22,7 @@ export const authRoutes = express.Router()
     }))
     .post('/google', google)
     .post('/facebook', facebook)
+    .post('/twitter', twitter);
 
 
 export async function signup(request: Request, response: Response) {
@@ -161,10 +163,9 @@ export async function facebook(req: RequestWithUser, res: Response) {
             if (await dbFacebookIdExists(profile.id)) {
                 return res.status(409).send('Facebook profile already linked');
             }
-            // If the users isn't linked to this facebook account then we update the current account with the clients facebook profile
             const user = await dbUpdateUser(req.user.username, {
                 facebook: profile.id,
-                picture: profile.picture.data.url, //profile.picture.replace('sz=50', 'sz=200'),
+                picture: profile.picture.data.url,
                 displayName: req.user.displayName || profile.name
             });
             return await sendTokenAsync(res, toTokenUser(user));
@@ -187,4 +188,74 @@ export async function facebook(req: RequestWithUser, res: Response) {
         console.log(err);
         return await res.sendStatus(500);
     }
+}
+
+export async function twitter(req: RequestWithUser, res: Response) {
+    try {
+        const requestTokenUrl = 'https://api.twitter.com/oauth/request_token';
+        const accessTokenUrl = 'https://api.twitter.com/oauth/access_token';
+        const profileUrl = 'https://api.twitter.com/1.1/account/verify_credentials.json';
+          // Part 1 of 2: Initial request.
+        if (!req.body.oauth_token || !req.body.oauth_verifier) {
+            const requestTokenOauth = {
+                consumer_key: req.body.clientId,
+                consumer_secret: config.auth.TWITTER_SECRET,
+                callback: req.body.redirectUri
+            };
+            // Step 1. Obtain request token for the authorization popup.
+            const oauth_token = qs.parse(await rp.post({ url: requestTokenUrl, oauth: requestTokenOauth }));
+            // Step 2. Send OAuth token back to open the authorization screen.
+            return res.send(oauth_token);
+        }
+        else {
+            // Part 2 of 2: Second request after Authorize app is clicked.
+             console.log(req.body);
+            const accessTokenOauth = {
+                consumer_key: req.body.clientId,
+                consumer_secret: config.auth.TWITTER_SECRET,
+                token: req.body.oauth_token,
+                verifier: req.body.oauth_verifier
+            };
+            // Step 3. Exchange oauth token and oauth verifier for access token.
+            const access_token = qs.parse(await rp.post(accessTokenUrl, { oauth: accessTokenOauth }));
+            const profileOauth = {
+                consumer_key: req.body.clientId,
+                consumer_secret: config.auth.TWITTER_SECRET,
+                token: access_token.oauth_token,
+                token_secret: access_token.oauth_token_secret,
+            };
+            // Step 4. Retrieve user's profile information and email address.
+            const profile: ITwitterProfile = await rp.get({ url: profileUrl, qs: { include_email: true }, oauth: profileOauth, json: true });
+            if (req.user) {
+                // Step 5a. Update existing user account
+                if (await dbTwitterIdExists(profile.id)) {
+                    return res.status(409).send('Twitter profile already linked');
+                }
+                const user = await dbUpdateUser(req.user.username, {
+                    twitter: profile.id,
+                    displayName: req.user.displayName || profile.name,
+                    picture: profile.profile_image_url,
+                });
+                return await sendTokenAsync(res, toTokenUser(user));
+            }
+            // Step 5b. Create a new user account
+            const twitterIdExists = await dbTwitterIdExists(profile.id);
+            if (!twitterIdExists) {
+                const user = await dbSaveUser({
+                    username: profile.name,
+                    twitter: profile.id,
+                    picture: profile.profile_image_url,
+                    displayName: profile.name
+                });
+                return await sendTokenAsync(res, toTokenUser(user));
+            }
+            // 5c. return an existing user
+            const user = await dbGetUserByTwitter(profile.id);
+            return await sendTokenAsync(res, toTokenUser(user));
+        }
+    }
+    catch (err) {
+        console.log(err);
+    }
+    return res.sendStatus(500);
 }
